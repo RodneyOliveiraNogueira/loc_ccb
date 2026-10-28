@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Loc_CCB - Condomínio Cisne Branco</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Loc_CCB</h1>
+      <p class="subtitle">Localizador Condomínio Cisne Branco</p>
+
+      <div class="inputs-row">
+        <div class="input-box">
+          <label for="lote">Lote</label>
+          <input type="number" id="lote" placeholder="Ex: 55" />
+        </div>
+        <div class="input-box">
+          <label for="unidade">Unidade</label>
+          <input type="number" id="unidade" placeholder="Ex: 02" />
+        </div>
+      </div>
+
+      <button id="btnBuscar">Localizar Endereço</button>
+
+      <div id="msgErro" class="erro"></div>
+
+      <div id="resultado">
+        <p class="info-rua" id="infoRua"></p>
+        <div class="plus-code-tag" id="textoPlusCode"></div>
+        <br />
+        <div id="qrcode"></div>
+        <p class="dica-camera">Aponte a câmera do celular para abrir a rota</p>
+        <a id="linkMaps" class="btn-maps" href="#" target="_blank"
+          >Abrir direto no Google Maps</a
+        >
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
