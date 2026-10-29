@@ -1,122 +1,268 @@
-const PREFIXO_GLOBAL = "589V";
-const PLUS_CODE_PORTARIA = "5WM6+7H";
-const URL_PLANILHA =
-  "https://docs.google.com/spreadsheets/d/1QDUCLr8tZzTbxc1dwSf0Pl-0U7MjGyu7IzCgq95za1o/gviz/tq?tqx=out:json";
+// Apenas o código de identificação da planilha
+const SHEET_ID = "1QDUCLr8tZzTbxc1dwSf0Pl-0U7MjGyu7IzCgq95za1o";
+const NOME_ABA = "Cadastro";
 
-let baseEnderecos = {};
-let dadosCarregados = false;
+// Plus Code completo da Portaria para o retorno
+const PLUS_CODE_PORTARIA = "5WM6+7H São Pedro da Aldeia, RJ";
 
-const btnBuscar = document.getElementById("btnBuscar");
-const inputLote = document.getElementById("lote");
-const inputUnidade = document.getElementById("unidade");
-const divResultado = document.getElementById("resultado");
-const divErro = document.getElementById("msgErro");
-const divQrCode = document.getElementById("qrcode");
+let baseEnderecos = [];
+let filaEntregas = [];
 
+// Carrega os dados da aba Cadastro assim que abre o sistema
 async function carregarPlanilha() {
-  btnBuscar.textContent = "Sincronizando base...";
-  btnBuscar.disabled = true;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(NOME_ABA)}`;
 
   try {
-    const resposta = await fetch(URL_PLANILHA);
+    const resposta = await fetch(url);
     const texto = await resposta.text();
-
-    const jsonLimpo = texto.substring(47).slice(0, -2);
-    const dados = JSON.parse(jsonLimpo);
-    const linhas = dados.table.rows;
-
-    linhas.forEach((linha) => {
-      const c = linha.c;
-      if (!c || !c[0] || c[0].v === null) return;
-
-      const lote = parseInt(c[0].v, 10);
-      const unidade = c[1] && c[1].v !== null ? parseInt(c[1].v, 10) : 0;
-
-      if (isNaN(lote)) return;
-
-      const rua = c[2] && c[2].v !== null ? c[2].v : "";
-      const plusCode = c[3] && c[3].v !== null ? String(c[3].v).trim() : "";
-
-      if (plusCode) {
-        const chave = `${lote}-${unidade}`;
-        baseEnderecos[chave] = {
-          plusCode: plusCode,
-          rua: rua,
-          ref: `Lote ${lote}, Unid. ${unidade} (Rua ${rua})`,
-        };
-      }
-    });
-
-    dadosCarregados = true;
-    btnBuscar.textContent = "Localizar Endereço";
-    btnBuscar.disabled = false;
-  } catch (erro) {
-    mostrarErro(
-      "Erro ao ler a planilha. Verifique a conexão ou o compartilhamento.",
+    const jsonString = texto.substring(
+      texto.indexOf("{"),
+      texto.lastIndexOf("}") + 1,
     );
-    btnBuscar.textContent = "Erro na Base";
+    const dados = JSON.parse(jsonString);
+
+    // Colunas na aba Cadastro:
+    // A (0): LOTE | B (1): UNIDADE | C (2): RUA | D (3): MORADOR (Ignorado) | E (4): PLUS CODE (COMPLETO)
+    baseEnderecos = dados.table.rows
+      .map((linha) => {
+        return {
+          lote:
+            linha.c[0]?.v !== null && linha.c[0]?.v !== undefined
+              ? String(linha.c[0].v).trim()
+              : "",
+          unidade:
+            linha.c[1]?.v !== null && linha.c[1]?.v !== undefined
+              ? String(linha.c[1].v).trim()
+              : "",
+          rua: linha.c[2]?.v ? Number(linha.c[2].v) : 0,
+          plusCode: linha.c[4]?.v ? String(linha.c[4].v).trim() : "",
+        };
+      })
+      .filter((item) => item.lote !== "" && item.plusCode !== "");
+  } catch (erro) {
+    mostrarErro("Erro ao conectar com a planilha. Verifique a conexão.");
   }
 }
 
-function buscarRota() {
-  if (!dadosCarregados) return;
+function buscarCasa(loteDigitado, unidadeDigitada) {
+  const loteLimpo = String(Number(loteDigitado));
+  const unidLimpa = String(Number(unidadeDigitada));
 
-  const lote = parseInt(inputLote.value.trim(), 10);
-  // Se a unidade ficar em branco (casa única no lote), assume 0 automaticamente
-  const valorUnidade = inputUnidade.value.trim();
-  const unidade = valorUnidade === "" ? 0 : parseInt(valorUnidade, 10);
+  return baseEnderecos.find(
+    (item) =>
+      String(Number(item.lote)) === loteLimpo &&
+      String(Number(item.unidade)) === unidLimpa,
+  );
+}
 
-  if (isNaN(lote) || isNaN(unidade)) {
-    mostrarErro("Preencha o Lote corretamente.");
+// Validação instantânea ao digitar Lote e Unidade
+function validarEmTempoReal() {
+  esconderErro();
+  const lote = document.getElementById("lote").value.trim();
+  const unidade = document.getElementById("unidade").value.trim();
+  const statusRua = document.getElementById("status-rua");
+
+  if (!lote || !unidade) {
+    statusRua.textContent = "--";
+    statusRua.className = "rua-display";
+    return null;
+  }
+
+  const encontrado = buscarCasa(lote, unidade);
+
+  if (encontrado) {
+    statusRua.textContent = `Rua ${encontrado.rua}`;
+    statusRua.className = "rua-display valido";
+    return encontrado;
+  } else {
+    statusRua.textContent = "Não cad.";
+    statusRua.className = "rua-display invalido";
+    return null;
+  }
+}
+
+function adicionarNaFila() {
+  const casa = validarEmTempoReal();
+
+  if (!casa) {
+    mostrarErro(
+      "Endereço não encontrado no cadastro. Verifique Lote e Unidade.",
+    );
     return;
   }
 
-  const chaveBusca = `${lote}-${unidade}`;
-  const dados = baseEnderecos[chaveBusca];
+  const jaExiste = filaEntregas.some(
+    (item) => item.lote === casa.lote && item.unidade === casa.unidade,
+  );
+  if (jaExiste) {
+    mostrarErro("Este endereço já foi adicionado na lista.");
+    return;
+  }
 
-  if (dados) {
-    divErro.style.display = "none";
-    divResultado.style.display = "block";
+  filaEntregas.push(casa);
+  atualizarInterfaceFila();
 
-    document.getElementById("infoRua").textContent =
-      `${dados.ref} ➔ Saída (${PLUS_CODE_PORTARIA})`;
-    document.getElementById("textoPlusCode").textContent = dados.plusCode;
+  // Limpa os campos para digitar o próximo pacote
+  document.getElementById("lote").value = "";
+  document.getElementById("unidade").value = "";
+  document.getElementById("status-rua").textContent = "--";
+  document.getElementById("status-rua").className = "rua-display";
+  document.getElementById("lote").focus();
+  document.getElementById("resultado").style.display = "none";
+}
 
-    const paradaCasa = encodeURIComponent(`${PREFIXO_GLOBAL}${dados.plusCode}`);
-    const destinoSaida = encodeURIComponent(
-      `${PREFIXO_GLOBAL}${PLUS_CODE_PORTARIA}`,
+function removerDaFila(index) {
+  filaEntregas.splice(index, 1);
+  atualizarInterfaceFila();
+  document.getElementById("resultado").style.display = "none";
+}
+
+function limparFila() {
+  filaEntregas = [];
+  atualizarInterfaceFila();
+  document.getElementById("resultado").style.display = "none";
+}
+
+function atualizarInterfaceFila() {
+  const container = document.getElementById("fila-container");
+  const lista = document.getElementById("lista-fila");
+  const contador = document.getElementById("contador-fila");
+  const btnLocalizar = document.getElementById("btn-localizar");
+
+  lista.innerHTML = "";
+  contador.textContent = filaEntregas.length;
+
+  if (filaEntregas.length === 0) {
+    container.style.display = "none";
+    btnLocalizar.textContent = "Localizar Endereço";
+    return;
+  }
+
+  container.style.display = "block";
+  btnLocalizar.textContent =
+    filaEntregas.length === 1
+      ? "Gerar Rota (1 Endereço)"
+      : `Finalizar e Gerar Rotas (${filaEntregas.length} Endereços)`;
+
+  filaEntregas.forEach((item, index) => {
+    const li = document.createElement("li");
+    li.className = "item-fila";
+    li.innerHTML = `
+            <span><strong>Rua ${item.rua}</strong> - Lote ${item.lote}, Unid. ${item.unidade}</span>
+            <button class="btn-remover" onclick="removerDaFila(${index})" title="Remover">&times;</button>
+        `;
+    lista.appendChild(li);
+  });
+}
+
+function processarRotas() {
+  esconderErro();
+
+  let listaFinal = [...filaEntregas];
+
+  // Se houver um endereço válido preenchido nos campos que ainda não entrou na fila, inclui automaticamente
+  const casaAtual = validarEmTempoReal();
+  if (casaAtual) {
+    const jaExiste = listaFinal.some(
+      (item) =>
+        item.lote === casaAtual.lote && item.unidade === casaAtual.unidade,
     );
+    if (!jaExiste) {
+      listaFinal.push(casaAtual);
+    }
+  }
 
-    const urlMaps = `https://www.google.com/maps/dir/?api=1&waypoints=${paradaCasa}&destination=${destinoSaida}&travelmode=driving`;
+  if (listaFinal.length === 0) {
+    mostrarErro("Digite um Lote e Unidade válidos antes de localizar.");
+    return;
+  }
 
-    document.getElementById("linkMaps").href = urlMaps;
+  const divResultado = document.getElementById("resultado");
+  const areaUnica = document.getElementById("area-unica");
+  const areaMultipla = document.getElementById("area-multipla");
 
-    divQrCode.innerHTML = "";
-    new QRCode(divQrCode, {
+  divResultado.style.display = "block";
+
+  // CASO 1: Apenas 1 endereço (Vai na casa e volta pra Portaria + QR Code)
+  if (listaFinal.length === 1) {
+    areaUnica.style.display = "block";
+    areaMultipla.style.display = "none";
+
+    const destinoCasa = encodeURIComponent(listaFinal[0].plusCode);
+    const destinoPortaria = encodeURIComponent(PLUS_CODE_PORTARIA);
+
+    const urlMaps = `https://www.google.com/maps/dir/?api=1&waypoints=${destinoCasa}&destination=${destinoPortaria}&travelmode=driving`;
+
+    const containerQr = document.getElementById("qrcode");
+    containerQr.innerHTML = "";
+    new QRCode(containerQr, {
       text: urlMaps,
-      width: 170,
-      height: 170,
-      colorDark: "#000000",
-      colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.M,
+      width: 180,
+      height: 180,
     });
-  } else {
-    mostrarErro("Combinação de Lote e Unidade não cadastrada na planilha.");
+
+    document.getElementById("link-maps-unico").href = urlMaps;
+  }
+  // CASO 2: Múltiplos endereços (Ordena por Rua/Lote, fatia de 10 em 10 e separa botão da Portaria)
+  else {
+    areaUnica.style.display = "none";
+    areaMultipla.style.display = "block";
+
+    // Ordena primeiro por Rua (crescente) e depois por Lote (crescente)
+    listaFinal.sort((a, b) => {
+      if (a.rua !== b.rua) return a.rua - b.rua;
+      return Number(a.lote) - Number(b.lote);
+    });
+
+    const containerBotoes = document.getElementById("botoes-rotas");
+    containerBotoes.innerHTML = "";
+
+    const tamanhoBloco = 10;
+    for (let i = 0; i < listaFinal.length; i += tamanhoBloco) {
+      const bloco = listaFinal.slice(i, i + tamanhoBloco);
+      const numRota = Math.floor(i / tamanhoBloco) + 1;
+      const inicio = i + 1;
+      const fim = i + bloco.length;
+
+      const ultimoPonto = encodeURIComponent(bloco[bloco.length - 1].plusCode);
+      let urlBloco = "";
+
+      if (bloco.length === 1) {
+        urlBloco = `https://www.google.com/maps/dir/?api=1&destination=${ultimoPonto}&travelmode=driving`;
+      } else {
+        const paradasIntermediarias = bloco
+          .slice(0, -1)
+          .map((item) => encodeURIComponent(item.plusCode))
+          .join("|");
+        urlBloco = `https://www.google.com/maps/dir/?api=1&waypoints=${paradasIntermediarias}&destination=${ultimoPonto}&travelmode=driving`;
+      }
+
+      const btn = document.createElement("a");
+      btn.href = urlBloco;
+      btn.target = "_blank";
+      btn.className = "btn-maps";
+      btn.textContent =
+        listaFinal.length > 10
+          ? `Iniciar Rota ${numRota} (Endereços ${inicio} a ${fim})`
+          : `Iniciar Rota (${bloco.length} Endereços)`;
+
+      containerBotoes.appendChild(btn);
+    }
+
+    // Configura o botão isolado de retorno para a Portaria
+    const urlRetornoPortaria = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(PLUS_CODE_PORTARIA)}&travelmode=driving`;
+    document.getElementById("btn-rota-portaria").href = urlRetornoPortaria;
   }
 }
 
-function mostrarErro(mensagem) {
-  divResultado.style.display = "none";
-  divErro.textContent = mensagem;
+function mostrarErro(msg) {
+  const divErro = document.getElementById("erro");
+  divErro.textContent = msg;
   divErro.style.display = "block";
 }
 
-btnBuscar.addEventListener("click", buscarRota);
+function esconderErro() {
+  document.getElementById("erro").style.display = "none";
+}
 
-[inputLote, inputUnidade].forEach((campo) => {
-  campo.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") buscarRota();
-  });
-});
-
-carregarPlanilha();
+window.onload = carregarPlanilha;

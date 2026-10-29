@@ -3,41 +3,168 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Loc_CCB - Condomínio Cisne Branco</title>
+    <title>Loc_CCB</title>
+
+    <!-- Ícone da aba do navegador (Favicon) -->
+    <link rel="icon" type="image/png" href="img/Logo.png" />
+
+    <!-- Metadados gerais e cor da barra do navegador no celular -->
+    <meta
+      name="description"
+      content="Sistema de localização e rotas de endereços do Condomínio Cisne Branco."
+    />
+    <meta name="theme-color" content="#1e293b" />
+
+    <!-- Open Graph (WhatsApp, Facebook, Telegram) -->
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:url"
+      content="https://rodneyoliveiranogueira.github.io/loc_ccb/"
+    />
+    <meta
+      property="og:title"
+      content="Loc_CCB - Localizador Condomínio Cisne Branco"
+    />
+    <meta
+      property="og:description"
+      content="Localize lotes e unidades rapidamente e gere rotas diretas no Google Maps."
+    />
+    <meta
+      property="og:image"
+      content="https://rodneyoliveiranogueira.github.io/loc_ccb/img/Portaria.jpg"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter / X Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Loc_CCB - Localizador Condomínio Cisne Branco"
+    />
+    <meta
+      name="twitter:description"
+      content="Localize lotes e unidades rapidamente e gere rotas diretas no Google Maps."
+    />
+    <meta
+      name="twitter:image"
+      content="https://rodneyoliveiranogueira.github.io/loc_ccb/img/Portaria.jpg"
+    />
+
     <link rel="stylesheet" href="style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   </head>
   <body>
-    <div class="card">
-      <h1>Loc_CCB</h1>
-      <p class="subtitle">Localizador Condomínio Cisne Branco</p>
+    <div class="main-wrapper">
+      <!-- Logo posicionada fora e acima do card -->
+      <img
+        src="img/LogoAdministradora.png"
+        alt="Logo Administradora Condomínio Cisne Branco"
+        class="logo-topo"
+      />
 
-      <div class="inputs-row">
-        <div class="input-box">
-          <label for="lote">Lote</label>
-          <input type="number" id="lote" placeholder="Ex: 55" />
+      <div class="card">
+        <h1>Loc_CCB</h1>
+        <p class="subtitle">Localizador Condomínio Cisne Branco</p>
+
+        <div class="inputs-row">
+          <div class="input-box">
+            <label for="lote">Lote</label>
+            <input
+              type="number"
+              id="lote"
+              placeholder="Ex: 55"
+              oninput="validarEmTempoReal()"
+            />
+          </div>
+          <div class="input-box">
+            <label for="unidade">Unidade</label>
+            <input
+              type="number"
+              id="unidade"
+              placeholder="Ex: 2"
+              oninput="validarEmTempoReal()"
+            />
+          </div>
+          <div class="input-box rua-box">
+            <label>Rua</label>
+            <div id="status-rua" class="rua-display">--</div>
+          </div>
+          <div class="btn-add-box">
+            <label>&nbsp;</label>
+            <button
+              type="button"
+              id="btn-add"
+              onclick="adicionarNaFila()"
+              title="Adicionar à lista de endereços"
+            >
+              +
+            </button>
+          </div>
         </div>
-        <div class="input-box">
-          <label for="unidade">Unidade</label>
-          <input type="number" id="unidade" placeholder="Ex: 02" />
+
+        <div id="erro" class="erro"></div>
+
+        <div id="fila-container" class="fila-container">
+          <div class="fila-header">
+            <span>Fila de Endereços (<span id="contador-fila">0</span>)</span>
+            <button type="button" class="btn-limpar" onclick="limparFila()">
+              Limpar tudo
+            </button>
+          </div>
+          <ul id="lista-fila" class="lista-fila"></ul>
+        </div>
+
+        <button type="button" id="btn-localizar" onclick="processarRotas()">
+          Localizar Endereço
+        </button>
+
+        <div id="resultado">
+          <div id="area-unica">
+            <div id="qrcode"></div>
+            <p class="dica-camera">
+              Aponte a câmera do celular para abrir a rota
+            </p>
+            <a id="link-maps-unico" href="#" target="_blank" class="btn-maps"
+              >Abrir direto no Google Maps</a
+            >
+          </div>
+
+          <div id="area-multipla">
+            <p class="titulo-rotas">Rotas Otimizadas (Por Rua e Lote):</p>
+            <div id="botoes-rotas"></div>
+            <a
+              id="btn-rota-portaria"
+              href="#"
+              target="_blank"
+              class="btn-portaria"
+              >Rota Portaria (Saída)</a
+            >
+          </div>
         </div>
       </div>
-
-      <button id="btnBuscar">Localizar Endereço</button>
-
-      <div id="msgErro" class="erro"></div>
-
-      <div id="resultado">
-        <p class="info-rua" id="infoRua"></p>
-        <div class="plus-code-tag" id="textoPlusCode"></div>
-        <br />
-        <div id="qrcode"></div>
-        <p class="dica-camera">Aponte a câmera do celular para abrir a rota</p>
-        <a id="linkMaps" class="btn-maps" href="#" target="_blank"
-          >Abrir direto no Google Maps</a
+      <p>
+        Portaria:
+        <a href="https://wa.me/5522997120131" target="_blank"
+          ><i class="fa-brands fa-whatsapp"></i> (22) 99712-0131</a
         >
-      </div>
+      </p>
     </div>
+
+    <footer class="rodape">
+      <p>
+        Desenvolvido por: <strong>Gustavo de Oliveira Reis</strong> |
+        <a href="https://wa.me/5522992457758" target="_blank"
+          ><i class="fa-brands fa-whatsapp"></i> (22) 99245-7758</a
+        >
+      </p>
+
+      <p class="copyright">&copy; 2026 Todos os direitos reservados.</p>
+    </footer>
 
     <script src="script.js"></script>
   </body>
