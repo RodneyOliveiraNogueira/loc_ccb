@@ -2,11 +2,21 @@
 const SHEET_ID = "1QDUCLr8tZzTbxc1dwSf0Pl-0U7MjGyu7IzCgq95za1o";
 const NOME_ABA = "Cadastro";
 
+/// URL completa do Webhook gerada no Google Apps Script
+const URL_WEBHOOK =
+  "https://script.google.com/macros/s/AKfycby1IAejIYx4wgye-L7Hre1dayPyw9mur2gAlA1T7tnQQ4-in4uuX-aMr9U3CHVtFh7A/exec";
+
 // Plus Code completo da Portaria para o retorno
 const PLUS_CODE_PORTARIA = "5WM6+7H São Pedro da Aldeia, RJ";
 
 let baseEnderecos = [];
 let filaEntregas = [];
+
+// Inicialização: Carrega planilha e depois carrega a fila salva na memória
+window.onload = async () => {
+  await carregarPlanilha();
+  carregarFilaLocal();
+};
 
 // Carrega os dados da aba Cadastro assim que abre o sistema
 async function carregarPlanilha() {
@@ -21,8 +31,6 @@ async function carregarPlanilha() {
     );
     const dados = JSON.parse(jsonString);
 
-    // Colunas na aba Cadastro:
-    // A (0): LOTE | B (1): UNIDADE | C (2): RUA | D (3): MORADOR (Ignorado) | E (4): PLUS CODE (COMPLETO)
     baseEnderecos = dados.table.rows
       .map((linha) => {
         return {
@@ -81,6 +89,20 @@ function validarEmTempoReal() {
   }
 }
 
+/* --- FUNÇÕES DA FILA E LOCAL STORAGE --- */
+
+function salvarFilaLocal() {
+  localStorage.setItem("loc_ccb_fila", JSON.stringify(filaEntregas));
+}
+
+function carregarFilaLocal() {
+  const salva = localStorage.getItem("loc_ccb_fila");
+  if (salva) {
+    filaEntregas = JSON.parse(salva);
+    atualizarInterfaceFila();
+  }
+}
+
 function adicionarNaFila() {
   const casa = validarEmTempoReal();
 
@@ -101,6 +123,7 @@ function adicionarNaFila() {
 
   filaEntregas.push(casa);
   atualizarInterfaceFila();
+  salvarFilaLocal(); // GATILHO: Salva na memória
 
   // Limpa os campos para digitar o próximo pacote
   document.getElementById("lote").value = "";
@@ -114,12 +137,14 @@ function adicionarNaFila() {
 function removerDaFila(index) {
   filaEntregas.splice(index, 1);
   atualizarInterfaceFila();
+  salvarFilaLocal(); // GATILHO: Salva na memória
   document.getElementById("resultado").style.display = "none";
 }
 
 function limparFila() {
   filaEntregas = [];
   atualizarInterfaceFila();
+  salvarFilaLocal(); // GATILHO: Salva na memória
   document.getElementById("resultado").style.display = "none";
 }
 
@@ -155,6 +180,26 @@ function atualizarInterfaceFila() {
   });
 }
 
+/* --- FUNÇÕES DE ROTA E WEBHOOK --- */
+
+function registrarHistorico(lista) {
+  if (lista.length === 0) return;
+
+  const payload = {
+    aparelho: navigator.userAgent,
+    fila: lista,
+  };
+
+  fetch(URL_WEBHOOK, {
+    method: "POST",
+    mode: "no-cors",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
 function processarRotas() {
   esconderErro();
 
@@ -177,13 +222,15 @@ function processarRotas() {
     return;
   }
 
+  // GATILHO: Envia para a aba Histórico da Planilha
+  registrarHistorico(listaFinal);
+
   const divResultado = document.getElementById("resultado");
   const areaUnica = document.getElementById("area-unica");
   const areaMultipla = document.getElementById("area-multipla");
 
   divResultado.style.display = "block";
 
-  // CASO 1: Apenas 1 endereço (Vai na casa e volta pra Portaria + QR Code)
   if (listaFinal.length === 1) {
     areaUnica.style.display = "block";
     areaMultipla.style.display = "none";
@@ -202,13 +249,10 @@ function processarRotas() {
     });
 
     document.getElementById("link-maps-unico").href = urlMaps;
-  }
-  // CASO 2: Múltiplos endereços (Ordena por Rua/Lote, fatia de 10 em 10 e separa botão da Portaria)
-  else {
+  } else {
     areaUnica.style.display = "none";
     areaMultipla.style.display = "block";
 
-    // Ordena primeiro por Rua (crescente) e depois por Lote (crescente)
     listaFinal.sort((a, b) => {
       if (a.rua !== b.rua) return a.rua - b.rua;
       return Number(a.lote) - Number(b.lote);
@@ -249,7 +293,6 @@ function processarRotas() {
       containerBotoes.appendChild(btn);
     }
 
-    // Configura o botão isolado de retorno para a Portaria
     const urlRetornoPortaria = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(PLUS_CODE_PORTARIA)}&travelmode=driving`;
     document.getElementById("btn-rota-portaria").href = urlRetornoPortaria;
   }
@@ -264,5 +307,3 @@ function mostrarErro(msg) {
 function esconderErro() {
   document.getElementById("erro").style.display = "none";
 }
-
-window.onload = carregarPlanilha;
