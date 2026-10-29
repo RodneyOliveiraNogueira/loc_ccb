@@ -2,7 +2,7 @@
 const SHEET_ID = "1QDUCLr8tZzTbxc1dwSf0Pl-0U7MjGyu7IzCgq95za1o";
 const NOME_ABA = "Cadastro";
 
-/// URL completa do Webhook gerada no Google Apps Script
+// URL completa do Webhook gerada no Google Apps Script
 const URL_WEBHOOK =
   "https://script.google.com/macros/s/AKfycbyH_p9xjMHImhCTg0QH3bo0S1M51k5g2enI1fmoP92iR05iHI3geaQEv8bfJuCKmipR/exec";
 
@@ -180,6 +180,19 @@ function atualizarInterfaceFila() {
   });
 }
 
+/* --- FILTRO DE LIMPEZA DO PLUS CODE --- */
+function limparPlusCode(codigo) {
+  if (!codigo) return "";
+  // 1. Remove os bairros indesejados (insensível a maiúsculas/minúsculas)
+  let limpo = codigo.replace(
+    /(Boa Vista|Bela Vista|Fluminense|Morro dos Milagres),?\s*/gi,
+    "",
+  );
+  // 2. Padroniza o final para ", RJ" tirando hifens soltos
+  limpo = limpo.replace(/\s*-\s*RJ/gi, ", RJ");
+  return limpo.trim();
+}
+
 /* --- FUNÇÕES DE ROTA E WEBHOOK --- */
 
 function registrarHistorico(lista) {
@@ -231,14 +244,28 @@ function processarRotas() {
 
   divResultado.style.display = "block";
 
+  // --- BOTÃO DA PORTARIA UNIVERSAL ---
+  // Configura o link de saída e move o botão para o final do bloco de resultados
+  const urlRetornoPortaria = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(PLUS_CODE_PORTARIA)}&travelmode=driving`;
+  const btnPortaria = document.getElementById("btn-rota-portaria");
+
+  if (btnPortaria) {
+    btnPortaria.href = urlRetornoPortaria;
+    divResultado.appendChild(btnPortaria); // Traz o botão para o rodapé geral
+    btnPortaria.style.display = "block";
+    btnPortaria.style.marginTop = "15px"; // Dá um respiro visual
+  }
+
+  // CASO 1: Apenas 1 endereço
   if (listaFinal.length === 1) {
     areaUnica.style.display = "block";
     areaMultipla.style.display = "none";
 
-    const destinoCasa = encodeURIComponent(listaFinal[0].plusCode);
-    const destinoPortaria = encodeURIComponent(PLUS_CODE_PORTARIA);
+    const destinoLimpo = limparPlusCode(listaFinal[0].plusCode);
+    const destinoCasa = encodeURIComponent(destinoLimpo);
 
-    const urlMaps = `https://www.google.com/maps/dir/?api=1&waypoints=${destinoCasa}&destination=${destinoPortaria}&travelmode=driving`;
+    // Rota direta apenas para a casa (sem retorno automático via waypoints)
+    const urlMaps = `https://www.google.com/maps/dir/?api=1&destination=${destinoCasa}&travelmode=driving`;
 
     const containerQr = document.getElementById("qrcode");
     containerQr.innerHTML = "";
@@ -246,10 +273,13 @@ function processarRotas() {
       text: urlMaps,
       width: 180,
       height: 180,
+      correctLevel: QRCode.CorrectLevel.L,
     });
 
     document.getElementById("link-maps-unico").href = urlMaps;
-  } else {
+  }
+  // CASO 2: Múltiplos endereços
+  else {
     areaUnica.style.display = "none";
     areaMultipla.style.display = "block";
 
@@ -268,7 +298,8 @@ function processarRotas() {
       const inicio = i + 1;
       const fim = i + bloco.length;
 
-      const ultimoPonto = encodeURIComponent(bloco[bloco.length - 1].plusCode);
+      const ultimoPontoLimpo = limparPlusCode(bloco[bloco.length - 1].plusCode);
+      const ultimoPonto = encodeURIComponent(ultimoPontoLimpo);
       let urlBloco = "";
 
       if (bloco.length === 1) {
@@ -276,7 +307,7 @@ function processarRotas() {
       } else {
         const paradasIntermediarias = bloco
           .slice(0, -1)
-          .map((item) => encodeURIComponent(item.plusCode))
+          .map((item) => encodeURIComponent(limparPlusCode(item.plusCode)))
           .join("|");
         urlBloco = `https://www.google.com/maps/dir/?api=1&waypoints=${paradasIntermediarias}&destination=${ultimoPonto}&travelmode=driving`;
       }
@@ -292,9 +323,6 @@ function processarRotas() {
 
       containerBotoes.appendChild(btn);
     }
-
-    const urlRetornoPortaria = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(PLUS_CODE_PORTARIA)}&travelmode=driving`;
-    document.getElementById("btn-rota-portaria").href = urlRetornoPortaria;
   }
 }
 
