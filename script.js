@@ -183,14 +183,12 @@ function atualizarInterfaceFila() {
 /* --- FILTRO DE LIMPEZA DO PLUS CODE --- */
 function limparPlusCode(codigo) {
   if (!codigo) return "";
-  // 1. Remove os bairros indesejados (insensível a maiúsculas/minúsculas)
-  let limpo = codigo.replace(
-    /(Boa Vista|Bela Vista|Fluminense|Morro dos Milagres),?\s*/gi,
-    "",
-  );
-  // 2. Padroniza o final para ", RJ" tirando hifens soltos
-  limpo = limpo.replace(/\s*-\s*RJ/gi, ", RJ");
-  return limpo.trim();
+
+  // Corta o texto no primeiro espaço e pega apenas a primeira parte (o código curto)
+  const codigoCurto = codigo.split(" ")[0];
+
+  // Monta a string final blindada contra erros de digitação de bairro ou estado
+  return `${codigoCurto} São Pedro da Aldeia, RJ`;
 }
 
 /* --- FUNÇÕES DE ROTA E WEBHOOK --- */
