@@ -14,9 +14,25 @@ let filaEntregas = [];
 
 // Inicialização: Carrega planilha e depois carrega a fila salva na memória
 window.onload = async () => {
+  configurarBotaoPortaria(); // Deixa o botão visível logo de cara
   await carregarPlanilha();
   carregarFilaLocal();
 };
+
+function configurarBotaoPortaria() {
+  const urlRetornoPortaria = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(PLUS_CODE_PORTARIA)}&travelmode=driving`;
+  const btnPortaria = document.getElementById("btn-rota-portaria");
+  const divResultado = document.getElementById("resultado");
+
+  if (btnPortaria && divResultado) {
+    btnPortaria.href = urlRetornoPortaria;
+    btnPortaria.style.display = "block";
+    btnPortaria.style.marginTop = "12px";
+
+    // Tira o botão de dentro da div escondida e coloca no card principal, logo abaixo do resultado
+    divResultado.parentNode.insertBefore(btnPortaria, divResultado.nextSibling);
+  }
+}
 
 // Carrega os dados da aba Cadastro assim que abre o sistema
 async function carregarPlanilha() {
@@ -205,7 +221,7 @@ function registrarHistorico(lista) {
     method: "POST",
     mode: "no-cors",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "text/plain;charset=utf-8",
     },
     body: JSON.stringify(payload),
   });
@@ -241,18 +257,6 @@ function processarRotas() {
   const areaMultipla = document.getElementById("area-multipla");
 
   divResultado.style.display = "block";
-
-  // --- BOTÃO DA PORTARIA UNIVERSAL ---
-  // Configura o link de saída e move o botão para o final do bloco de resultados
-  const urlRetornoPortaria = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(PLUS_CODE_PORTARIA)}&travelmode=driving`;
-  const btnPortaria = document.getElementById("btn-rota-portaria");
-
-  if (btnPortaria) {
-    btnPortaria.href = urlRetornoPortaria;
-    divResultado.appendChild(btnPortaria); // Traz o botão para o rodapé geral
-    btnPortaria.style.display = "block";
-    btnPortaria.style.marginTop = "15px"; // Dá um respiro visual
-  }
 
   // CASO 1: Apenas 1 endereço
   if (listaFinal.length === 1) {
