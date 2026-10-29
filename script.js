@@ -4,7 +4,7 @@ const NOME_ABA = "Cadastro";
 
 /// URL completa do Webhook gerada no Google Apps Script
 const URL_WEBHOOK =
-  "https://script.google.com/macros/s/AKfycby1IAejIYx4wgye-L7Hre1dayPyw9mur2gAlA1T7tnQQ4-in4uuX-aMr9U3CHVtFh7A/exec";
+  "https://script.google.com/macros/s/AKfycbyH_p9xjMHImhCTg0QH3bo0S1M51k5g2enI1fmoP92iR05iHI3geaQEv8bfJuCKmipR/exec";
 
 // Plus Code completo da Portaria para o retorno
 const PLUS_CODE_PORTARIA = "5WM6+7H São Pedro da Aldeia, RJ";
