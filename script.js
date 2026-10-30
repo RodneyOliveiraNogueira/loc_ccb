@@ -212,17 +212,25 @@ function limparPlusCode(codigo) {
 function registrarHistorico(lista) {
   if (lista.length === 0) return;
 
+  const ua = navigator.userAgent;
+  let tipoAparelho = "Computador (PC)";
+
+  if (/android/i.test(ua)) {
+    tipoAparelho = "Celular (Android)";
+  } else if (/iphone|ipad|ipod/i.test(ua)) {
+    tipoAparelho = "Celular (iPhone)";
+  } else if (/mobile/i.test(ua)) {
+    tipoAparelho = "Celular (Outros)";
+  }
+
   const payload = {
-    aparelho: navigator.userAgent,
+    aparelho: tipoAparelho,
     fila: lista,
   };
 
   fetch(URL_WEBHOOK, {
     method: "POST",
     mode: "no-cors",
-    headers: {
-      "Content-Type": "text/plain;charset=utf-8",
-    },
     body: JSON.stringify(payload),
   });
 }
